@@ -442,7 +442,7 @@ namespace glm
         var row1 = vec(m.data[1]).mul(v.data[1]);
         var row2 = vec(m.data[2]).mul(v.data[2]);
         var row3 = vec(m.data[3]);
-        result.data[3] = deepcopy(row0.add(row1).add(row2).add(row3).data);
+        result.data[3] = row0.add(row1).add(row2).add(row3).data;
         return result;
     }
 
@@ -472,9 +472,9 @@ namespace glm
         var m0 = vec(m.data[0]);
         var m1 = vec(m.data[1]);
         var m2 = vec(m.data[2]);
-        result.data[0] = deepcopy( m0.mul(Rotate.data[0][0]).add( m1.mul(Rotate.data[0][1]) ).add( m2.mul(Rotate.data[0][2]) ).data );
-        result.data[1] = deepcopy( m0.mul(Rotate.data[1][0]).add( m1.mul(Rotate.data[1][1]) ).add( m2.mul(Rotate.data[1][2]) ).data );
-        result.data[2] = deepcopy( m0.mul(Rotate.data[2][0]).add( m1.mul(Rotate.data[2][1]) ).add( m2.mul(Rotate.data[2][2]) ).data );
+        result.data[0] = m0.mul(Rotate.data[0][0]).add( m1.mul(Rotate.data[0][1]) ).add( m2.mul(Rotate.data[0][2]) ).data;
+        result.data[1] = m0.mul(Rotate.data[1][0]).add( m1.mul(Rotate.data[1][1]) ).add( m2.mul(Rotate.data[1][2]) ).data;
+        result.data[2] = m0.mul(Rotate.data[2][0]).add( m1.mul(Rotate.data[2][1]) ).add( m2.mul(Rotate.data[2][2]) ).data;
         result.data[3] = deepcopy(m.data[3]);
         return result;
     }
@@ -485,9 +485,9 @@ namespace glm
         var m0 = vec(m.data[0]);
         var m1 = vec(m.data[1]);
         var m2 = vec(m.data[2]);
-        result.data[0] = deepcopy( m0.mul(v.data[0]).data );
-        result.data[1] = deepcopy( m1.mul(v.data[1]).data );
-        result.data[2] = deepcopy( m2.mul(v.data[2]).data );
+        result.data[0] = m0.mul(v.data[0]).data;
+        result.data[1] = m1.mul(v.data[1]).data;
+        result.data[2] = m2.mul(v.data[2]).data;
         result.data[3] = deepcopy(m.data[3]);
         return result;
     }
