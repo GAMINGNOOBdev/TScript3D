@@ -540,204 +540,208 @@ namespace glm
 
 }
 
-
-var backbuffer = canvas.Bitmap(canvas.width(), canvas.height());
-var backbufferSize = [canvas.width(), canvas.height()];
-function glBeginDraw()
+namespace gl
 {
-    canvas.paintImage(0, 0, backbuffer);
-    if backbufferSize[0] != canvas.width() or backbufferSize[1] != canvas.height() then
+    var backbuffer = canvas.Bitmap(canvas.width(), canvas.height());
+    var backbufferSize = [canvas.width(), canvas.height()];
+    var glDrawCmds = [ [0,0], [0,0], [0,0] ];
+
+    var glCachedMaxTris = 10000;
+    var glDepthBuffer = Array(glCachedMaxTris);
+    var glIndexBuffer = Array(glCachedMaxTris);
+    var glVertexDisplayCoordinateBuffer = Array(glCachedMaxTris * 6);
+
+    function glBeginDraw()
     {
-        backbuffer = canvas.Bitmap(canvas.width(), canvas.height());
-        backbufferSize = [canvas.width(), canvas.height()];
+        canvas.paintImage(0, 0, backbuffer);
+        if backbufferSize[0] != canvas.width() or backbufferSize[1] != canvas.height() then
+        {
+            backbuffer = canvas.Bitmap(canvas.width(), canvas.height());
+            backbufferSize = [canvas.width(), canvas.height()];
+        }
+
+        canvas.setDrawingTarget(backbuffer);
     }
 
-    canvas.setDrawingTarget(backbuffer);
-}
-
-function glEndDraw()
-{
-    canvas.setDrawingTarget(null);
-}
-
-var glDrawCmds = [ [0,0], [0,0], [0,0] ];
-function glDrawTrianglesSlowButPretty(numTriangles, buffer, projection, model)
-{
-    var triangles = [];
-    var combinedMatrix = projection.mul(model);
-    var nearPlane = projection.data[3][2] / (projection.data[2][2] - 1.0);
-    var w = backbufferSize[0];
-    var h = backbufferSize[1];
-    var triangleCount = 0;
-    var indices = [];
-    var zBuffer = [];
-
-    for var i in 0:numTriangles do
+    function glEndDraw()
     {
-        var c0 = combinedMatrix.mul(buffer[i*3]);
-        var c1 = combinedMatrix.mul(buffer[i*3+1]);
-        var c2 = combinedMatrix.mul(buffer[i*3+2]);
-
-        if c0.data[3] < nearPlane or c1.data[3] < nearPlane or c2.data[3] < nearPlane then
-            continue;
-
-        var p0 = glm.convertToScreenSpace(c0, w, h);
-        var p1 = glm.convertToScreenSpace(c1, w, h);
-        var p2 = glm.convertToScreenSpace(c2, w, h);
-
-        var x0 = p0.data[0];
-        var y0 = p0.data[1];
-        var x1 = p1.data[0];
-        var y1 = p1.data[1];
-        var x2 = p2.data[0];
-        var y2 = p2.data[1];
-
-        var area = (x1 - x0)*(y2 - y0) -  (x2 - x0)*(y1 - y0);
-        if area <= 0 then continue;
-        var zSum = c0.data[3] + c1.data[3] + c2.data[3];
-
-        triangles.push(x0);
-        triangles.push(y0);
-        triangles.push(x1);
-        triangles.push(y1);
-        triangles.push(x2);
-        triangles.push(y2);
-        indices.push(triangleCount);
-        zBuffer.push(zSum);
-        triangleCount += 1;
+        canvas.setDrawingTarget(null);
     }
 
-    indices.sort(function [zBuffer] (lhs,rhs){
-        return zBuffer[rhs] - zBuffer[lhs];
-    });
-
-    canvas.setFillColor(1,1,1,1);
-    for var i in 0:triangleCount do
+    function glDrawTrianglesSlowButPretty(numTriangles, buffer, projection, model)
     {
-        var idx = indices[i] * 6;
+        var triangles = [];
+        var combinedMatrix = projection.mul(model);
+        var nearPlane = projection.data[3][2] / (projection.data[2][2] - 1.0);
+        var w = backbufferSize[0];
+        var h = backbufferSize[1];
+        var triangleCount = 0;
+        var indices = [];
+        var zBuffer = [];
 
-        glDrawCmds[0][0] = triangles[idx + 0];
-        glDrawCmds[0][1] = triangles[idx + 1];
-        glDrawCmds[1][0] = triangles[idx + 2];
-        glDrawCmds[1][1] = triangles[idx + 3];
-        glDrawCmds[2][0] = triangles[idx + 4];
-        glDrawCmds[2][1] = triangles[idx + 5];
-        canvas.fillArea(glDrawCmds);
+        for var i in 0:numTriangles do
+        {
+            var c0 = combinedMatrix.mul(buffer[i*3]);
+            var c1 = combinedMatrix.mul(buffer[i*3+1]);
+            var c2 = combinedMatrix.mul(buffer[i*3+2]);
+
+            if c0.data[3] < nearPlane or c1.data[3] < nearPlane or c2.data[3] < nearPlane then
+                continue;
+
+            var p0 = glm.convertToScreenSpace(c0, w, h);
+            var p1 = glm.convertToScreenSpace(c1, w, h);
+            var p2 = glm.convertToScreenSpace(c2, w, h);
+
+            var x0 = p0.data[0];
+            var y0 = p0.data[1];
+            var x1 = p1.data[0];
+            var y1 = p1.data[1];
+            var x2 = p2.data[0];
+            var y2 = p2.data[1];
+
+            var area = (x1 - x0)*(y2 - y0) -  (x2 - x0)*(y1 - y0);
+            if area <= 0 then continue;
+            var zSum = c0.data[3] + c1.data[3] + c2.data[3];
+
+            triangles.push(x0);
+            triangles.push(y0);
+            triangles.push(x1);
+            triangles.push(y1);
+            triangles.push(x2);
+            triangles.push(y2);
+            indices.push(triangleCount);
+            zBuffer.push(zSum);
+            triangleCount += 1;
+        }
+
+        indices.sort(function [zBuffer] (lhs,rhs){
+            return zBuffer[rhs] - zBuffer[lhs];
+        });
+
+        canvas.setFillColor(1,1,1,1);
+        for var i in 0:triangleCount do
+        {
+            var idx = indices[i] * 6;
+
+            glDrawCmds[0][0] = triangles[idx + 0];
+            glDrawCmds[0][1] = triangles[idx + 1];
+            glDrawCmds[1][0] = triangles[idx + 2];
+            glDrawCmds[1][1] = triangles[idx + 3];
+            glDrawCmds[2][0] = triangles[idx + 4];
+            glDrawCmds[2][1] = triangles[idx + 5];
+            canvas.fillArea(glDrawCmds);
+        }
+
     }
 
-}
-
-var glCachedMaxTris = 10000;
-var glDepthBuffer = Array(glCachedMaxTris);
-var glIndexBuffer = Array(glCachedMaxTris);
-var glVertexDisplayCoordinateBuffer = Array(glCachedMaxTris * 6);
-
-function glDrawTriangles(numTriangles, buffer, projection, model)
-{
-    if numTriangles > glCachedMaxTris then
+    function glDrawTriangles(numTriangles, buffer, projection, model)
     {
-        glCachedMaxTris = numTriangles + 5000;
-        glDepthBuffer = Array(glCachedMaxTris);
-        glIndexBuffer = Array(glCachedMaxTris);
-        glVertexDisplayCoordinateBuffer = Array(glCachedMaxTris * 6);
-    }
+        if numTriangles > glCachedMaxTris then
+        {
+            glCachedMaxTris = numTriangles + 5000;
+            glDepthBuffer = Array(glCachedMaxTris);
+            glIndexBuffer = Array(glCachedMaxTris);
+            glVertexDisplayCoordinateBuffer = Array(glCachedMaxTris * 6);
+        }
 
-    var combinedMatrix = projection.mul(model);
-    var d = combinedMatrix.data;
-    var m00 = d[0][0]; var m01 = d[0][1]; var m03 = d[0][3];
-    var m10 = d[1][0]; var m11 = d[1][1]; var m13 = d[1][3];
-    var m20 = d[2][0]; var m21 = d[2][1]; var m23 = d[2][3];
-    var m30 = d[3][0]; var m31 = d[3][1]; var m33 = d[3][3];
+        var combinedMatrix = projection.mul(model);
+        var d = combinedMatrix.data;
+        var m00 = d[0][0]; var m01 = d[0][1]; var m03 = d[0][3];
+        var m10 = d[1][0]; var m11 = d[1][1]; var m13 = d[1][3];
+        var m20 = d[2][0]; var m21 = d[2][1]; var m23 = d[2][3];
+        var m30 = d[3][0]; var m31 = d[3][1]; var m33 = d[3][3];
 
-    var pData = projection.data;
-    var nearPlane = pData[3][2] / (pData[2][2] - 1.0);
+        var pData = projection.data;
+        var nearPlane = pData[3][2] / (pData[2][2] - 1.0);
 
-    var w2 = backbufferSize[0] * 0.5;
-    var h2 = backbufferSize[1] * 0.5;
-    var triangleCount = 0;
+        var w2 = backbufferSize[0] * 0.5;
+        var h2 = backbufferSize[1] * 0.5;
+        var triangleCount = 0;
 
-    for var i in 0:numTriangles do
-    {
-        var idx = i * 3;
-        var v0 = buffer[idx];
-        var v1 = buffer[idx+1];
-        var v2 = buffer[idx+2];
+        for var i in 0:numTriangles do
+        {
+            var idx = i * 3;
+            var v0 = buffer[idx];
+            var v1 = buffer[idx+1];
+            var v2 = buffer[idx+2];
 
-        var x0 = v0.data[0];
-        var y0 = v0.data[1];
-        var z0 = v0.data[2];
-        var x1 = v1.data[0];
-        var y1 = v1.data[1];
-        var z1 = v1.data[2];
-        var x2 = v2.data[0];
-        var y2 = v2.data[1];
-        var z2 = v2.data[2];
+            var x0 = v0.data[0];
+            var y0 = v0.data[1];
+            var z0 = v0.data[2];
+            var x1 = v1.data[0];
+            var y1 = v1.data[1];
+            var z1 = v1.data[2];
+            var x2 = v2.data[0];
+            var y2 = v2.data[1];
+            var z2 = v2.data[2];
 
-        var c0_w = x0 * m03 + y0 * m13 + z0 * m23 + m33;
-        if c0_w < nearPlane then
-            continue;
-        var c0_x = x0 * m00 + y0 * m10 + z0 * m20 + m30;
-        var c0_y = x0 * m01 + y0 * m11 + z0 * m21 + m31;
+            var c0_w = x0 * m03 + y0 * m13 + z0 * m23 + m33;
+            if c0_w < nearPlane then
+                continue;
+            var c0_x = x0 * m00 + y0 * m10 + z0 * m20 + m30;
+            var c0_y = x0 * m01 + y0 * m11 + z0 * m21 + m31;
+            
+            var c1_w = x1 * m03 + y1 * m13 + z1 * m23 + m33;
+            if c1_w < nearPlane then
+                continue;
+            var c1_x = x1 * m00 + y1 * m10 + z1 * m20 + m30;
+            var c1_y = x1 * m01 + y1 * m11 + z1 * m21 + m31;
+
+            var c2_w = x2 * m03 + y2 * m13 + z2 * m23 + m33;
+            if c2_w < nearPlane then
+                continue;
+            var c2_x = x2 * m00 + y2 * m10 + z2 * m20 + m30;
+            var c2_y = x2 * m01 + y2 * m11 + z2 * m21 + m31;
+
+            var invW0 = 1.0 / c0_w;
+            var p0_x = (c0_x * invW0 + 1.0) * w2;
+            var p0_y = (c0_y * invW0 + 1.0) * h2;
+            var invW1 = 1.0 / c1_w;
+            var p1_x = (c1_x * invW1 + 1.0) * w2;
+            var p1_y = (c1_y * invW1 + 1.0) * h2;
+            var invW2 = 1.0 / c2_w;
+            var p2_x = (c2_x * invW2 + 1.0) * w2;
+            var p2_y = (c2_y * invW2 + 1.0) * h2;
+
+            var area = (p1_x - p0_x) * (p2_y - p0_y) - (p2_x - p0_x) * (p1_y - p0_y);
+            if area <= 0 then continue;
+
+            glDepthBuffer[triangleCount] = c0_w + c1_w + c2_w;
+            glIndexBuffer[triangleCount] = triangleCount;
+
+            var ptr = triangleCount * 6;
+            glVertexDisplayCoordinateBuffer[ptr + 0] = p0_x;
+            glVertexDisplayCoordinateBuffer[ptr + 1] = p0_y;
+            glVertexDisplayCoordinateBuffer[ptr + 2] = p1_x;
+            glVertexDisplayCoordinateBuffer[ptr + 3] = p1_y;
+            glVertexDisplayCoordinateBuffer[ptr + 4] = p2_x;
+            glVertexDisplayCoordinateBuffer[ptr + 5] = p2_y;
+
+            triangleCount += 1;
+        }
+
+        var sortedTriangles = glIndexBuffer.slice(0, triangleCount);
         
-        var c1_w = x1 * m03 + y1 * m13 + z1 * m23 + m33;
-        if c1_w < nearPlane then
-            continue;
-        var c1_x = x1 * m00 + y1 * m10 + z1 * m20 + m30;
-        var c1_y = x1 * m01 + y1 * m11 + z1 * m21 + m31;
+        sortedTriangles.sort(function [glDepthBuffer] (a, b) {
+            return glDepthBuffer[b] - glDepthBuffer[a];
+        });
 
-        var c2_w = x2 * m03 + y2 * m13 + z2 * m23 + m33;
-        if c2_w < nearPlane then
-            continue;
-        var c2_x = x2 * m00 + y2 * m10 + z2 * m20 + m30;
-        var c2_y = x2 * m01 + y2 * m11 + z2 * m21 + m31;
+        canvas.setFillColor(1,1,1,1);
+        for var k in 0:triangleCount do
+        {
+            var triIdx = sortedTriangles[k];
+            var ptr = triIdx * 6;
 
-        var invW0 = 1.0 / c0_w;
-        var p0_x = (c0_x * invW0 + 1.0) * w2;
-        var p0_y = (c0_y * invW0 + 1.0) * h2;
-        var invW1 = 1.0 / c1_w;
-        var p1_x = (c1_x * invW1 + 1.0) * w2;
-        var p1_y = (c1_y * invW1 + 1.0) * h2;
-        var invW2 = 1.0 / c2_w;
-        var p2_x = (c2_x * invW2 + 1.0) * w2;
-        var p2_y = (c2_y * invW2 + 1.0) * h2;
+            glDrawCmds[0][0] = glVertexDisplayCoordinateBuffer[ptr + 0];
+            glDrawCmds[0][1] = glVertexDisplayCoordinateBuffer[ptr + 1];
+            glDrawCmds[1][0] = glVertexDisplayCoordinateBuffer[ptr + 2];
+            glDrawCmds[1][1] = glVertexDisplayCoordinateBuffer[ptr + 3];
+            glDrawCmds[2][0] = glVertexDisplayCoordinateBuffer[ptr + 4];
+            glDrawCmds[2][1] = glVertexDisplayCoordinateBuffer[ptr + 5];
 
-        var area = (p1_x - p0_x) * (p2_y - p0_y) - (p2_x - p0_x) * (p1_y - p0_y);
-        if area <= 0 then continue;
-
-        glDepthBuffer[triangleCount] = c0_w + c1_w + c2_w;
-        glIndexBuffer[triangleCount] = triangleCount;
-
-        var ptr = triangleCount * 6;
-        glVertexDisplayCoordinateBuffer[ptr + 0] = p0_x;
-        glVertexDisplayCoordinateBuffer[ptr + 1] = p0_y;
-        glVertexDisplayCoordinateBuffer[ptr + 2] = p1_x;
-        glVertexDisplayCoordinateBuffer[ptr + 3] = p1_y;
-        glVertexDisplayCoordinateBuffer[ptr + 4] = p2_x;
-        glVertexDisplayCoordinateBuffer[ptr + 5] = p2_y;
-
-        triangleCount += 1;
-    }
-
-    var sortedTriangles = glIndexBuffer.slice(0, triangleCount);
-    
-    sortedTriangles.sort(function [glDepthBuffer] (a, b) {
-        return glDepthBuffer[b] - glDepthBuffer[a];
-    });
-
-    canvas.setFillColor(1,1,1,1);
-    for var k in 0:triangleCount do
-    {
-        var triIdx = sortedTriangles[k];
-        var ptr = triIdx * 6;
-
-        glDrawCmds[0][0] = glVertexDisplayCoordinateBuffer[ptr + 0];
-        glDrawCmds[0][1] = glVertexDisplayCoordinateBuffer[ptr + 1];
-        glDrawCmds[1][0] = glVertexDisplayCoordinateBuffer[ptr + 2];
-        glDrawCmds[1][1] = glVertexDisplayCoordinateBuffer[ptr + 3];
-        glDrawCmds[2][0] = glVertexDisplayCoordinateBuffer[ptr + 4];
-        glDrawCmds[2][1] = glVertexDisplayCoordinateBuffer[ptr + 5];
-
-        canvas.fillArea(glDrawCmds);
+            canvas.fillArea(glDrawCmds);
+        }
     }
 }
+
 
